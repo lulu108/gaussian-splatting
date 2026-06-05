@@ -17,8 +17,20 @@ import cv2
 
 WARNED = False
 
-def loadCam(args, id, cam_info, resolution_scale, is_nerf_synthetic, is_test_dataset):
+def load_image(cam_info, is_nerf_synthetic, white_background):
     image = Image.open(cam_info.image_path)
+    if not is_nerf_synthetic:
+        return image
+
+    # NeRF Synthetic/Blender 的 PNG 带 alpha；这里是进入 Camera.original_image 前的最终 GT 合成点。
+    im_data = np.array(image.convert("RGBA"))
+    bg = np.array([1, 1, 1] if white_background else [0, 0, 0], dtype=np.float32)
+    norm_data = im_data.astype(np.float32) / 255.0
+    arr = norm_data[:, :, :3] * norm_data[:, :, 3:4] + bg * (1 - norm_data[:, :, 3:4])
+    return Image.fromarray(np.array(arr * 255.0, dtype=np.uint8), "RGB")
+
+def loadCam(args, id, cam_info, resolution_scale, is_nerf_synthetic, is_test_dataset):
+    image = load_image(cam_info, is_nerf_synthetic, args.white_background)
 
     if cam_info.depth_path != "":
         try:
